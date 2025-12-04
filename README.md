@@ -23,9 +23,9 @@ const result = yield* compiler.compile(MySchema.ast, initialContext)
 
 ## Rationale
 
-Working with effect/Schema ASTs is non-trivial to say the least.
+Working with effect/Schema AST is non-trivial to say the least.  
 I've put together this library after spending some time on writing code compiling schemas to Confluence docs, other language types etc.  
-It doesn't automagically weaves the need to understand AST, yet provides some nice-to-haves when working with it.
+It doesn't automagically weave the need to understand AST, yet provides some nice-to-haves when working with it.
 
 ## Usage example with tests
 
