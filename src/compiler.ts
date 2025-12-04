@@ -1,10 +1,10 @@
 import { Array, Data, Effect, flow, Layer, Option, Pipeable } from 'effect'
-import * as AST from 'effect/SchemaAST'
+import * as SchemaAST from 'effect/SchemaAST'
 import * as Context from 'effect/Context'
 import type { Matcher, MatchTransformation } from './match.ts'
 
 export class CompilerError extends Data.TaggedError(`CompilerError`)<{
-  ast: AST.AST
+  ast: SchemaAST.AST
   message: string
 }> {}
 
@@ -21,14 +21,14 @@ export namespace Compiler {
     ) => Layer.Layer<Context<ContextValue>, E, R1>
     compile: Context<ContextValue> extends R
       ? <Ctx extends ContextValue | undefined>(
-          ast: AST.AST,
+          ast: SchemaAST.AST,
           context?: Ctx,
         ) => Effect.Effect<
           A,
           CompilerError,
           Ctx extends ContextValue ? Exclude<R, Context<ContextValue>> : R
         >
-      : (ast: AST.AST) => Effect.Effect<A, CompilerError, R>
+      : (ast: SchemaAST.AST) => Effect.Effect<A, CompilerError, R>
 
     rule: {
       <B, R2 = R | Context<ContextValue>>(): <M>(
@@ -81,9 +81,10 @@ function isCompilerWithRules<A, ContextValue, R>(
   throw new Error(`Compiler must have rules array`)
 }
 
-export const matchTags = <T extends AST.AST['_tag']>(...tags: T[]) => {
+export const matchTags = <T extends SchemaAST.AST['_tag']>(...tags: T[]) => {
   const s = new Set<string>(tags)
-  const predicate = (ast: AST.AST): ast is Extract<AST.AST, { _tag: T }> => s.has(ast._tag)
+  const predicate = (ast: SchemaAST.AST): ast is Extract<SchemaAST.AST, { _tag: T }> =>
+    s.has(ast._tag)
   const fromPredicate = Option.liftPredicate(predicate)
 
   return fromPredicate
@@ -92,15 +93,17 @@ export const matchTags = <T extends AST.AST['_tag']>(...tags: T[]) => {
 const transformation = matchTags(`Transformation`)
 
 export const matchTransformation = <
-  Kind extends AST.TransformationKind['_tag'],
+  Kind extends SchemaAST.TransformationKind['_tag'],
   S extends { from?: Matcher<unknown>; to?: Matcher<unknown> } = never,
 >(
   kind: Kind,
   structure?: S,
 ) => {
-  const matchKind = (ast: AST.Transformation) =>
+  const matchKind = (ast: SchemaAST.Transformation) =>
     ast.transformation._tag === kind
-      ? Option.some(ast.transformation as Extract<AST.TransformationKind, { _tag: typeof kind }>)
+      ? Option.some(
+          ast.transformation as Extract<SchemaAST.TransformationKind, { _tag: typeof kind }>,
+        )
       : Option.none()
 
   return flow(
@@ -129,7 +132,7 @@ const rule = (
   predicate: Matcher<any>,
   fn: (
     match: any,
-    go: (ast: AST.AST, context?: any) => Effect.Effect<any, CompilerError, any>,
+    go: (ast: SchemaAST.AST, context?: any) => Effect.Effect<any, CompilerError, any>,
     ctx: Context.Tag<any, any>,
   ) => Effect.Effect<any, CompilerError, any>,
 ) => {
@@ -147,7 +150,7 @@ const proto = Object.freeze({
   makeContextLayer(build: Effect.Effect<any, any, any>) {
     return Layer.effect(CompilerContextTag, build)
   },
-  compile(this: Compiler.Compiler<any, any, any>, ast: AST.AST, ctx?: any) {
+  compile(this: Compiler.Compiler<any, any, any>, ast: SchemaAST.AST, ctx?: any) {
     isCompilerWithRules(this)
 
     const match: any[] = Array.filterMap(this.rules, ({ predicate, fn }) =>
@@ -161,7 +164,7 @@ const proto = Object.freeze({
     return match[0]
       .fn(
         match[0].value,
-        (ast: AST.AST, context?: any) => {
+        (ast: SchemaAST.AST, context?: any) => {
           const cmp = this.compile(ast)
           return cmp.pipe(
             (context ?? ctx)

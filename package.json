@@ -15,7 +15,7 @@
     "url": "git+https://github.com/amar4enko/effect-schema-compiler.git"
   },
   "scripts": {
-    "build": "bunup",
+    "build": "bunup --dts.infer-types",
     "dev": "bunup --watch",
     "postinstall": "bun simple-git-hooks",
     "lint": "oxlint src",
