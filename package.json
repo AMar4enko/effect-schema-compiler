@@ -1,6 +1,6 @@
 {
   "name": "@amar4enko/effect-schema-compiler",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Attempt at ergonomic effect/Schema compiler",
   "homepage": "https://github.com/amar4enko/effect-schema-compiler#readme",
   "bugs": {
