@@ -1,6 +1,14 @@
-import { Array, Data, Effect, flow, Layer, Option, Pipeable } from 'effect'
-import * as SchemaAST from 'effect/SchemaAST'
-import * as Context from 'effect/Context'
+import {
+  Array,
+  Data,
+  Effect,
+  flow,
+  Layer,
+  Pipeable,
+  Option,
+  SchemaAST,
+  Context,
+} from './imports.js'
 import type { Matcher, MatchTransformation } from './match.ts'
 
 export class CompilerError extends Data.TaggedError(`CompilerError`)<{
@@ -81,7 +89,9 @@ function isCompilerWithRules<A, ContextValue, R>(
   throw new Error(`Compiler must have rules array`)
 }
 
-export const matchTags = <T extends SchemaAST.AST['_tag']>(...tags: T[]) => {
+export const matchTags = <T extends SchemaAST.AST['_tag']>(
+  ...tags: T[]
+): ((ast: SchemaAST.AST) => Option.Option<Extract<SchemaAST.AST, { _tag: T }>>) => {
   const s = new Set<string>(tags)
   const predicate = (ast: SchemaAST.AST): ast is Extract<SchemaAST.AST, { _tag: T }> =>
     s.has(ast._tag)

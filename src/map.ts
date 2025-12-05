@@ -1,4 +1,4 @@
-import { Option, SchemaAST, Record } from 'effect'
+import { Option, SchemaAST, Record } from './imports.js'
 import {
   type AST,
   Declaration,

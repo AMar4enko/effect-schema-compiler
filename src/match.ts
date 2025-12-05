@@ -1,4 +1,4 @@
-import { Option } from 'effect'
+import { Option } from './imports.js'
 import { type AST, Transformation, type TransformationKind } from 'effect/SchemaAST'
 
 export type Matcher<A> = (ast: AST) => Option.Option<A>
