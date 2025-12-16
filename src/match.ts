@@ -9,9 +9,17 @@ export type ApplyMatchers<A extends { [key in keyof A]: A[key] }> = {
 
 export type MatchTransformation<
   Kind extends TransformationKind['_tag'],
-  S extends { from?: Matcher<unknown>; to?: Matcher<unknown> } = never,
+  S extends {
+    from?: Matcher<unknown>
+    to?: Matcher<unknown>
+  } = never,
 > = {
   ast: Transformation
-  kind: Extract<TransformationKind, { _tag: Kind }>
+  kind: Extract<
+    TransformationKind,
+    {
+      _tag: Kind
+    }
+  >
   structure: [S] extends [never] ? never : ApplyMatchers<S>
 }

@@ -1,3 +1,4 @@
+import { get } from 'effect/Chunk'
 import {
   Array,
   Data,
@@ -15,6 +16,10 @@ export class CompilerError extends Data.TaggedError(`CompilerError`)<{
   ast: SchemaAST.AST
   message: string
 }> {}
+
+export class Skip extends Data.TaggedError(`Skip`)<{}> {}
+
+export const skip = new Skip()
 
 const CompilerContextId = Symbol.for(`@effect-schema-compiler/CompilerContext`)
 const CompilerContextTag = Context.GenericTag(`@effect-schema-compiler/CompilerContext`)
@@ -46,7 +51,7 @@ export namespace Compiler {
           go: Compiler<A | B, ContextValue, R | R2>['compile'],
           context: Effect.Effect<ContextValue, never, Context<ContextValue>>,
         ) => Effect.Effect<B, CompilerError, R2>,
-      ) => Compiler<A | B, ContextValue, R | R2>;
+      ) => Compiler<A | B, ContextValue, R | R2>
 
       <M>(
         matcher: Matcher<M>,
@@ -54,23 +59,23 @@ export namespace Compiler {
           match: M,
           go: Compiler<A, ContextValue, R>['compile'],
           context: Effect.Effect<ContextValue, never, Context<ContextValue>>,
-        ) => Effect.Effect<A, CompilerError, R | Context<ContextValue>>,
-      ): Compiler<A, ContextValue, R | Context<ContextValue>>;
+        ) => Effect.Effect<A, CompilerError | Skip, R | Context<ContextValue>>,
+      ): Compiler<A, ContextValue, R | Context<ContextValue>>
 
       <B, R2 = R>(): <M>(
         matcher: Matcher<M>,
         compile: (
           match: M,
           go: Compiler<A | B, ContextValue, R | R2>['compile'],
-        ) => Effect.Effect<B, CompilerError, R2>,
-      ) => Compiler<A | B, ContextValue, R | R2>;
+        ) => Effect.Effect<B, CompilerError | Skip, R2>,
+      ) => Compiler<A | B, ContextValue, R | R2>
 
       <M>(
         matcher: Matcher<M>,
         compile: (
           match: M,
           go: Compiler<A, ContextValue, R>['compile'],
-        ) => Effect.Effect<A, CompilerError, R>,
+        ) => Effect.Effect<A, CompilerError | Skip, R>,
       ): Compiler<A, ContextValue, R>
     }
   }
@@ -144,7 +149,7 @@ const rule = (
     match: any,
     go: (ast: SchemaAST.AST, context?: any) => Effect.Effect<any, CompilerError, any>,
     ctx: Context.Tag<any, any>,
-  ) => Effect.Effect<any, CompilerError, any>,
+  ) => Effect.Effect<any, CompilerError | Skip, any>,
 ) => {
   isCompilerWithRules(compiler)
 
@@ -163,28 +168,52 @@ const proto = Object.freeze({
   compile(this: Compiler.Compiler<any, any, any>, ast: SchemaAST.AST, ctx?: any) {
     isCompilerWithRules(this)
 
-    const match: any[] = Array.filterMap(this.rules, ({ predicate, fn }) =>
+    /**
+     * Find all matches
+     */
+    const matches = Array.filterMap(this.rules, ({ predicate, fn }) =>
       predicate(ast).pipe(Option.map((value) => ({ value, fn }))),
     )
 
-    if (match.length === 0) {
-      return new CompilerError({ ast, message: `No matching compiler rule found` })
-    }
+    /**
+     * Get first match from the list
+     * @returns
+     */
+    const getNextToCheck = (): Option.Option<unknown> => Array.head(matches)
 
-    return match[0]
-      .fn(
-        match[0].value,
-        (ast: SchemaAST.AST, context?: any) => {
-          const cmp = this.compile(ast)
-          return cmp.pipe(
-            (context ?? ctx)
-              ? Effect.provideService(CompilerContextTag, context ?? ctx)
-              : Effect.zipLeft(Effect.void),
-          )
-        },
-        CompilerContextTag,
+    const go: any = () =>
+      getNextToCheck().pipe(
+        Option.match({
+          onNone: () => new CompilerError({ ast, message: `No matching compiler rule found` }),
+          onSome: (entry: any) => {
+            return (
+              (
+                entry.fn(
+                  entry.value,
+                  (ast: SchemaAST.AST, context?: any) => {
+                    const cmp = this.compile(ast)
+                    return cmp.pipe(
+                      (context ?? ctx)
+                        ? Effect.provideService(CompilerContextTag, context ?? ctx)
+                        : Effect.zipLeft(Effect.void),
+                    )
+                  },
+                  CompilerContextTag,
+                ) as Effect.Effect<any, CompilerError | Skip, any>
+              )
+                .pipe(
+                  ctx
+                    ? Effect.provideService(CompilerContextTag, ctx)
+                    : Effect.zipLeft(Effect.void),
+                )
+                // If match was skipped, try next one
+                .pipe(Effect.catchTag(`Skip`, () => (matches.splice(0, 1), go())))
+            )
+          },
+        }),
       )
-      .pipe(ctx ? Effect.provideService(CompilerContextTag, ctx) : Effect.zipLeft(Effect.void))
+
+    return go()
   },
   // oxlint-disable-next-line no-unused-vars
   rule(...args: any[]) {

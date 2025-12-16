@@ -3,6 +3,7 @@ import * as S from 'effect/Schema'
 import * as AST from 'effect/SchemaAST'
 import { Compiler } from '../src/index.js'
 import { Effect, flow, Option } from 'effect'
+import { skip } from '../src/compiler.js'
 
 const Order = S.Struct({
   id: S.String,

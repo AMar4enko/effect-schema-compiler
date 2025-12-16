@@ -76,4 +76,51 @@ describe(`Compiler`, () => {
       }),
     ),
   )
+  it.effect(`allows skipping arbitrary rule`, () =>
+    Effect.gen(function* () {
+      const compiler = Compiler.make<CompilerState, string>()
+        .rule(Option.liftPredicate(AST.isStringKeyword), () => Effect.succeed(`success`))
+        .rule(Option.liftPredicate(AST.isNumberKeyword), () => Compiler.skip)
+
+      const counter = yield* Ref.make(0)
+
+      const ctx = compiler.makeContextLayer(Effect.succeed({ counter }))
+
+      const result = yield* compiler
+        .compile(AST.numberKeyword)
+        .pipe(Effect.provide(ctx), Effect.flip)
+      expect(result).toBeInstanceOf(Compiler.CompilerError)
+    }),
+  )
+  it.effect(`allows for context-based skipping`, () =>
+    Effect.gen(function* () {
+      const counter = yield* Ref.make(0)
+
+      const compiler = Compiler.make<CompilerState, string>()
+        .rule(Option.liftPredicate(AST.isStringKeyword), (ast, go, context) =>
+          Effect.gen(function* () {
+            const counter = yield* context.pipe(Effect.andThen(({ counter }) => counter.get))
+            return yield* Effect.succeed(`success ${counter}`)
+          }),
+        )
+        .rule(
+          (ast) => Option.some(ast),
+          (ast, go, context) =>
+            Effect.gen(function* () {
+              const counter = yield* context.pipe(Effect.andThen(({ counter }) => counter.get))
+
+              if (counter === 1) {
+                return yield* Compiler.skip
+              }
+
+              return yield* go(ast, { counter: Ref.unsafeMake(counter + 1) })
+            }),
+        )
+
+      const ctx = compiler.makeContextLayer(Effect.succeed({ counter }))
+
+      const result = yield* compiler.compile(AST.stringKeyword).pipe(Effect.provide(ctx))
+      expect(result).toEqual(`success 1`)
+    }),
+  )
 })
